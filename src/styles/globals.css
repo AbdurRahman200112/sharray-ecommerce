@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+
+* {
+  font-family: "Montserrat", "Vazirmatn", serif;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+body {
+  background-color: #f2f2f2;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../../public/fonts/Vazirmatn-Regular.eot');
+  src: url('../../public/fonts/Vazirmatn-Regular.eot?#iefix') format('embedded-opentype'),
+    url('../../public/fonts/Vazirmatn-Regular.woff2') format('woff2'),
+    url('../../public/fonts/Vazirmatn-Regular.woff') format('woff'),
+    url('../../public/fonts/Vazirmatn-Regular.ttf') format('truetype'),
+    url('../../public/fonts/Vazirmatn-Regular.svg#Vazirmatn-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../../public/fonts/Vazirmatn-Bold.eot');
+  src: url('../../public/fonts/Vazirmatn-Bold.eot?#iefix') format('embedded-opentype'),
+    url('../../public/fonts/Vazirmatn-Bold.woff2') format('woff2'),
+    url('../../public/fonts/Vazirmatn-Bold.woff') format('woff'),
+    url('../../public/fonts/Vazirmatn-Bold.ttf') format('truetype'),
+    url('../../public/fonts/Vazirmatn-Bold.svg#Vazirmatn-Bold') format('svg');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../../public/fonts/Vazirmatn-Light.eot');
+  src: url('../../public/fonts/Vazirmatn-Light.eot?#iefix') format('embedded-opentype'),
+    url('../../public/fonts/Vazirmatn-Light.woff2') format('woff2'),
+    url('../../public/fonts/Vazirmatn-Light.woff') format('woff'),
+    url('../../public/fonts/Vazirmatn-Light.ttf') format('truetype'),
+    url('../../public/fonts/Vazirmatn-Light.svg#Vazirmatn-Light') format('svg');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Swiper */
+.swiper-button-prev.swiper-button-disabled,
+.swiper-button-next.swiper-button-disabled {
+  display: none;
+}
+.swiper-button-next::after {
+  display: none;
+}
+.swiper-button-prev::after {
+  display: none;
+}
+
+.swiper-slide {
+  width: fit-content;
+}
+
+/* Modal */
+.modalContent {
+  position: relative;
+  inset: auto;
+  margin: auto;
+  border: 1px solid #ccc;
+  background: #fff;
+  overflow: auto;
+  webkitoverflowscrolling: 'touch';
+  borderradius: 10px;
+  outline: none;
+  padding: 20px;
+  animation-fill-mode: forwards;
+}
+
+@media (max-width: 768px) {
+  .modalContent {
+    width: 80%;
+    height: 37%;
+  }
+}
+
+@media (min-width: 769px) {
+  .modalContent {
+    width: 50%;
+    height: 35%;
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Check out form ant design */
+.ant-input {
+  font-family: 'Vazirmatn', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.ant-input:hover,
+.ant-input:focus,
+.ant-input-focused {
+  border-color: #008181;
+  box-shadow: 0 0 0 2px rgba(0, 129, 129, 0.2);
+}
+
+.swiper-wrapper div {
+  width: auto !important;
+  /* padding: 0 20px; */
+}
+
+::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+::-webkit-scrollbar-button {
+  width: 0px;
+  height: 0px;
+}
+::-webkit-scrollbar-thumb {
+  background: #e1e1e1;
+  border: 0px none #ffffff;
+  border-radius: 0px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ffffff;
+}
+::-webkit-scrollbar-thumb:active {
+  background: #000000;
+}
+::-webkit-scrollbar-track {
+  background: #666666;
+  border: 0px none #ffffff;
+  border-radius: 0px;
+}
+::-webkit-scrollbar-track:hover {
+  background: #666666;
+}
+::-webkit-scrollbar-track:active {
+  background: #333333;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
