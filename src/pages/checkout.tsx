@@ -5,9 +5,11 @@ import { useTranslation } from '@/localization/index';
 import { useSelector, useDispatch, connect } from 'react-redux';
 import { Button, Form, Input, notification, Spin } from 'antd';
 import { PushpinFilled } from '@ant-design/icons';
+
 import ButtonWithValidation from '@/components/ButtonWithValidation';
 import MapModal from '@/components/MapModal';
 import DefaultLayout from '@/components/Layout/DefaultLayout';
+
 import { clearCart, selectCartTotal } from '@/redux/reducers/cartSlice';
 import { fetchBusiness, selectBusiness } from '@/redux/reducers/businessSlice';
 import { BASE_URL, ENV } from '@/lib/Common';
@@ -28,7 +30,7 @@ export const CheckOut = () => {
   const [isClient, setIsClient] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isModalOpen, setModalOpen] = useState(false);
-  const [location, setLocation] = useState({ lat: 0, lng: 0 });
+  const [location, setLocation] = useState(null);
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
   const [isCheckingGeolocation, setIsCheckingGeolocation] = useState(true);
   const [isFormValid, setIsFormValid] = useState(false);
@@ -60,6 +62,13 @@ export const CheckOut = () => {
     );
   }, []);
 
+
+  const handleClearCart = () => {
+    dispatch(clearCart());
+    localStorage.removeItem('cart');
+  };
+
+
   const fetchAddressFromLocation = async (latitude, longitude) => {
     try {
       const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_API}`);
@@ -73,10 +82,6 @@ export const CheckOut = () => {
     }
   };
 
-  const handleClearCart = () => {
-    dispatch(clearCart());
-    localStorage.removeItem('cart');
-  };
 
   const sendValidation = async (msg, encryptByAES, key) => {
     setIsSending(true);
@@ -150,8 +155,8 @@ export const CheckOut = () => {
           phone1: form.getFieldValue('phoneInfo'),
           phone2: form.getFieldValue('phoneInfo2') ?? null,
           address: form.getFieldValue('addressInfo'),
-          longitude: location.lng,
-          latitude: location.lat,
+          longitude: location?.lng || 0,
+          latitude: location?.lat || 0,
           sm_link: 'facebook.com',
           notes: form.getFieldValue('deliveryNotes') || 'none',
           order_date: '',
@@ -207,10 +212,31 @@ export const CheckOut = () => {
     }
   };
 
+  useEffect(() => {
+    setIsClient(true);
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          setLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        error => {
+          console.error('An error occurred while retrieving location', error);
+        }
+      );
+    } else {
+      console.error('Geolocation is not supported by this browser.');
+    }
+  }, []);
+
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
   const handleConfirmLocation = location => {
     setLocation(location);
+    fetchAddressFromLocation(location.lat, location.lng);
     handleCloseModal();
   };
 
@@ -226,92 +252,144 @@ export const CheckOut = () => {
           key="title"
         />
       </Head>
-      <div className="flex lg:flex-row flex-col gap-7 w-full relative">
+      <div className=" flex lg:flex-row flex-col gap-7 w-full relative">
         <Form
           layout="vertical"
           form={form}
-          className="flex lg:flex-row flex-col gap-7 w-full relative"
-          onFinish={values => {
-            if (isFormValid) {
-              sendValidation({ ...values }, encryptByAES, key);
-            }
-          }}
+          className="flex lg:flex-row flex-col gap-7 lg:w-[50%] w-full relative"
         >
-          <div className="w-full flex flex-col lg:gap-4 gap-3 items-start">
-            <h2 className="text-2xl font-bold">{t('checkout')}</h2>
-            <div className="w-full lg:w-[500px]">
-              <Form.Item
-                name="fullName"
-                label={t('full_name')}
-                rules={[{ required: true, message: t('full_name_required') }]}
-              >
-                <Input placeholder={t('enter_full_name')} />
-              </Form.Item>
-              <Form.Item
-                name="phoneInfo"
-                label={t('phone_number')}
-                rules={[{ required: true, message: t('phone_number_required') }]}
-              >
-                <Input placeholder={t('enter_phone_number')} />
-              </Form.Item>
-              <Form.Item name="phoneInfo2" label={t('phone_number_optional')}>
-                <Input placeholder={t('enter_optional_phone_number')} />
-              </Form.Item>
-              <Form.Item
+          <div className="flex flex-col gap-4 w-full">
+            <Form.Item
+              key={currentLanguage}
+              name="fullName"
+              label={t('fullName')}
+              rules={[
+                {
+                  required: true,
+                  message: validateLang(currentLanguage)
+                    ? 'يرجئ ادخال الاسم الكامل!'
+                    : 'Please input your full name!',
+                },
+              ]}
+            >
+              <Input placeholder={t('fullName')} size="large" />
+            </Form.Item>
+            <Form.Item
+              key={currentLanguage}
+              name="phoneInfo"
+              label={t('phoneInfo')}
+              rules={[
+                {
+                  required: true,
+                  pattern: /^((\+964)|0)(\d{10})$/,
+                  message: validateLang(currentLanguage)
+                    ? 'يرجئ ادخال رقم عراقي صالح!'
+                    : 'Please enter a valid Iraqi phone number!',
+                },
+              ]}
+            >
+              <Input placeholder={t('phoneInfo')} size="large" />
+            </Form.Item>
+            <Form.Item
+              key={currentLanguage}
+              name="phoneInfo2"
+              label={t('phoneInfo2')}
+              rules={[
+                {
+                  required: false,
+                  pattern: /^((\+964)|0)(\d{10})$/,
+                  message: validateLang(currentLanguage)
+                    ? 'يرجئ ادخال رقم عراقي صالح!'
+                    : 'Please enter a valid Iraqi phone number!',
+                },
+              ]}
+            >
+              <Input placeholder={t('phoneInfo2')} size="large" />
+            </Form.Item>
+            <Form.Item
                 name="addressInfo"
                 label={t('address')}
                 rules={[{ required: true, message: t('address_required') }]}
               >
-                <TextArea
-                  placeholder={t('enter_address')}
-                  rows={3}
-                  disabled={isCheckingGeolocation || isSending}
-                />
+                            <Input placeholder={t('addressInfo')} suffix={<Button onClick={handleOpenModal}>{t('pinOnMap')}</Button>} />
+
               </Form.Item>
-              <Form.Item name="deliveryNotes" label={t('delivery_notes')}>
-                <TextArea placeholder={t('optional_delivery_notes')} rows={3} />
-              </Form.Item>
-              <Form.Item>
-                <Button
-                  type="primary"
-                  onClick={handleOpenModal}
-                  disabled={isCheckingGeolocation || isSending}
-                >
-                  {t('select_on_map')}
-                </Button>
-              </Form.Item>
-            </div>
-          </div>
-          <div className="w-full lg:w-[300px]">
-            <div className="p-5 bg-gray-100 rounded-lg">
-              <h3 className="text-lg font-bold">{t('order_summary')}</h3>
-              <p>{t('total')}: {total} {t('currency')}</p>
+            <Form.Item name="deliveryNotes" label={t('deliveryNotes')}>
+              <TextArea rows={5} placeholder={t('deliveryNotesPlaceholder')} size="large" />
+            </Form.Item>
+            <Form.Item>
               <ButtonWithValidation
-                type="primary"
                 htmlType="submit"
-                loading={isSending}
-                disabled={isSending || isCheckingGeolocation}
+                mainColor={bs.mainColor}
+                textColor={bs.textColor}
+                onValidation={sendValidation}
+                isSending={isSending}
+                disabled={!isFormValid}
               >
-                {t('place_order')}
+                {t('checkOut')}
               </ButtonWithValidation>
-            </div>
+            </Form.Item>
           </div>
         </Form>
+        <div className=" lg:w-[50%] w-full h-full lg:h-screen ">
+          <div className=" border-y-2 border-black py-4 flex flex-col gap-2 ">
+            <span className="text-xl font-bold">{t('summary')}</span>
+            <div className="flex w-full justify-between text-lg font-bold">
+              <span>{t('itemTotal')}</span>
+              {isClient && (
+                <span>
+                  {total.toLocaleString('en-US')} {t('currency')}
+                </span>
+              )}
+            </div>
+            <div className="flex w-full justify-between text-lg font-bold">
+              <span>{t('deliveryPrice')}</span>
+              <span>
+                {(5000).toLocaleString('en-US')} {t('currency')}
+              </span>
+            </div>
+          </div>
+          <div className="flex w-full py-4 justify-between text-lg font-bold">
+            <span>{t('grandTotalAll')}</span>
+            {isClient && (
+              <span>
+                {(total + 5000).toLocaleString('en-US')} {t('currency')}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {location && (
         <MapModal
           isOpen={isModalOpen}
-          onClose={handleCloseModal}
+          onRequestClose={handleCloseModal}
           onConfirm={handleConfirmLocation}
-          currentLocation={location}
+          initialPosition={location}
         />
-        {isCheckingGeolocation && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Spin />
-            <p className="ml-2">{t('checking_location')}</p>
-          </div>
-        )}
-      </div>
+      )}
     </DefaultLayout>
   );
 };
 
-export default CheckOut;
+
+export const getServerSideProps = wrapper.getServerSideProps(store => async ({ query }) => {
+  await store.dispatch(fetchBusiness());
+
+  return {
+    props: {
+      business: store.getState().business,
+    },
+  };
+});
+
+const mapStateToProps = (state: AppState) => ({
+  business: state.business,
+});
+
+export default connect(mapStateToProps)(CheckOut);
+
+function setProductBaseOnCollection(arg0: { data: any }): any {
+  throw new Error('Function not implemented.');
+}
+/* ----------------------------------- -- ----------------------------------- */
