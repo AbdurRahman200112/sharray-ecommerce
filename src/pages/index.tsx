@@ -57,14 +57,14 @@ const Home: NextPage = ({ business, products }: { business: Business; products: 
     return rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
   }, []);
 
-  // Remove loadMore function, automatically loading on scroll
+  // Load collections function
   const loadCollection = async (collectionName: string, limit: number) => {
     setLoading(true);
     setSelectedCollections(collectionName);
 
     try {
       const response = await fetch(
-        `${BASE_URL}/api/v1/public/items?limit=25${
+        `${BASE_URL}/api/v1/public/items?limit=27${
           collectionName !== 'All' ? `&collection=${collectionName}` : ''
         }`
       );
@@ -96,20 +96,31 @@ const Home: NextPage = ({ business, products }: { business: Business; products: 
   useEffect(() => {
     const onScroll = () => {
       if (loading || allProducts.length <= visibleProducts.length) return;
-
+  
       if (bottomBoundaryRef.current && isBottomVisible(bottomBoundaryRef.current)) {
         setLoading(true);
         setTimeout(() => {
-          const newVisibleProducts = allProducts.slice(visibleProducts.length, visibleProducts.length + 12);
-          setVisibleProducts(prevProducts => [...prevProducts, ...newVisibleProducts]);
+          const remainingProducts = allProducts.length - visibleProducts.length;
+          const productsToLoad = remainingProducts > 12 ? 12 : remainingProducts; 
+  
+          // Load the next set of products, checking for duplicates
+          const newProducts = allProducts
+            .slice(visibleProducts.length, visibleProducts.length + productsToLoad)
+            .filter(product => !visibleProducts.some(visibleProduct => visibleProduct.uuid === product.uuid)); // Avoid duplication
+  
+          if (newProducts.length > 0) {
+            setVisibleProducts(prevProducts => [...prevProducts, ...newProducts]);
+          }
+  
           setLoading(false);
-        }, 1000); // Simulate loading delay
+        }, 1000); 
       }
     };
-
+  
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, [loading, isBottomVisible, visibleProducts, allProducts]);
+  
 
   useEffect(() => {
     setIsClient(true);

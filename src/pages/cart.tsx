@@ -1,8 +1,11 @@
 import DefaultLayout from '@/components/Layout/DefaultLayout';
 import HorizontalCard from '@/components/Product/HorizontalCard';
 import Head from 'next/head';
-import { NextPage } from 'next';
+import { NextPage, GetServerSideProps } from 'next';
 import { useEffect, useState } from 'react';
+import { wrapper } from '@/redux/store';
+import { fetchBusiness } from '@/redux/reducers/businessSlice';
+import { Business } from '@/lib/Interfaces';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectCart, clearCart } from '@/redux/reducers/cartSlice';
 import { Empty } from '@/components/cart/Empty';
@@ -12,11 +15,11 @@ import Modal from 'react-modal';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import { notification } from 'antd';
 import { validateLang } from '@/lib/Fuctions';
-import { Business } from '@/lib/Interfaces';
-import LoaderSpinner from '@/components/LoaderSpinner';
+/* --------------------------------- Lottie --------------------------------- */
 
+/* ----------------------------------- -- ----------------------------------- */
 interface CartProps {
-  business: Business | null; // Adjust type to handle possible null value
+  business: Business;
 }
 
 const Cart: NextPage<CartProps> = ({ business }) => {
@@ -30,39 +33,28 @@ const Cart: NextPage<CartProps> = ({ business }) => {
     width: '50%',
     height: '35%',
   });
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     setIsClient(true);
 
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-
-    const updateModalSize = () => {
+    function updateModalSize() {
       if (window.innerWidth < 768) {
         setModalSize({ width: '80%', height: '37%' });
       } else {
         setModalSize({ width: '50%', height: '35%' });
       }
-    };
+    }
 
     window.addEventListener('resize', updateModalSize);
     updateModalSize();
 
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateModalSize);
-    };
+    return () => window.removeEventListener('resize', updateModalSize);
   }, []);
 
   const handleClearCart = () => {
     dispatch(clearCart());
     setIsModalOpen(false);
     notification.success({
-      message: validateLang(currentLanguage)
-        ? 'تم إفراغ السلة بنجاح'
-        : 'Cart Emptied Successfully',
+      message: validateLang(currentLanguage) ? 'تم إفراغ السلة بنجاح' : 'Cart Emptied Successfully',
     });
   };
 
@@ -102,27 +94,22 @@ const Cart: NextPage<CartProps> = ({ business }) => {
     },
   };
 
-  const title = business
-    ? currentLanguage === 'ar'
-      ? business.title_ar
-      : business.title_en
-    : 'Cart';
-  const description = business
-    ? currentLanguage === 'ar'
-      ? business.descr_ar
-      : business.descr_en
-    : '';
-
   return (
     <>
       <DefaultLayout>
         <Head>
-          <title>{`${title} - Cart`}</title>
-          <meta property="og:description" content={description} key="description" />
+          <title>
+            {currentLanguage === 'ar'
+              ? `${business.title_ar} - سلة المشتريات`
+              : `${business.title_en} - Cart`}
+          </title>
+          <meta
+            property="og:description"
+            content={currentLanguage === 'ar' ? business.descr_ar : business.descr_en}
+            key="title"
+          />
         </Head>
-        {loading ? (
-          <LoaderSpinner />
-        ) : (
+        {isClient ? (
           <div className="w-full">
             {cartStore.length === 0 ? (
               <Empty />
@@ -131,49 +118,71 @@ const Cart: NextPage<CartProps> = ({ business }) => {
                 <div className="lg:w-1/2">
                   <PaymentMethods />
                 </div>
-                <div className="lg:w-1/2 w-full overflow-auto mb-10 lg:mb-0 h-full lg:h-screen">
+                <div className="lg:w-1/2 w-full  overflow-auto mb-10 lg:mb-0 h-full lg:h-screen">
                   <div className="w-full flex justify-end">
                     <button
                       onClick={() => openModal()}
                       className="flex items-center justify-center gap-3 text-sm font-light py-4 px-8 rounded-full transition-all ease-linear shadow-lg hover:opacity-80 bg-red-700 text-white"
                     >
                       <Trash2 width={16} height={16} />
-                      <span className="mt-1">{t('emptyCart')}</span>
+                      <span className="mt-1">{t('clearCart')}</span>
                     </button>
                   </div>
-                  {cartStore.map((item) => (
-                    <HorizontalCard cartItem={item} key={item.uuid || item.item_uuid} />
+
+                  {cartStore.map(item => (
+                    <HorizontalCard cartItem={item} key={item?.uuid} />
                   ))}
                 </div>
               </div>
             )}
           </div>
+        ) : (
+          <></>
         )}
-      </DefaultLayout>
-      <Modal
-        isOpen={isModalOpen}
-        onRequestClose={closeModal}
-        style={customModalStyles}
-        contentLabel="Confirm Modal"
-      >
-        <div className="flex flex-col items-center justify-center h-full">
-          <AlertTriangle size={64} className="text-red-600" />
-          <p className="mt-4 text-lg font-semibold">{t('confirmClearCart')}</p>
-          <div className="mt-6 flex gap-4">
-            <button
-              onClick={handleClearCart}
-              className="py-2 px-4 bg-red-600 text-white rounded-md"
+        <Modal
+          style={customModalStyles}
+          isOpen={isModalOpen}
+          onRequestClose={() => setIsModalOpen(false)}
+        >
+          <div className="w-full h-full flex flex-col gap-4 justify-center items-center">
+            <AlertTriangle className="text-yellow-500 w-10 h-10" />
+            <h2 className="text-xl font-bold">{t('confirmClearCart')}</h2>
+            <p className="text-center text-sm font-light px-8">{t('confirmClearCartMessage')} </p>
+            <div
+              className={`flex items-center gap-5 ${
+                currentLanguage == 'ar' ? 'flex-row-reverse' : 'flex-row'
+              }`}
             >
-              {t('confirm')}
-            </button>
-            <button onClick={closeModal} className="py-2 px-4 bg-gray-200 text-black rounded-md">
-              {t('cancel')}
-            </button>
+              <button
+                className="w-32 h-12 flex items-center justify-center font-light py-2 px-5 mt-5 rounded-full transition-all ease-linear shadow-lg hover:scale-110 bg-blue-500 hover:bg-blue-400 text-white text-sm"
+                onClick={handleClearCart}
+              >
+                {t('yes')}
+              </button>
+              <button
+                className="w-32 h-12 flex items-center justify-center font-light py-2 px-5 mt-5 rounded-full transition-all ease-linear shadow-lg hover:scale-110 bg-red-500 hover:bg-red-400 text-white text-sm"
+                onClick={() => setIsModalOpen(false)}
+              >
+                {t('no')}
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      </DefaultLayout>
     </>
   );
 };
+
+export const getServerSideProps: GetServerSideProps = wrapper.getServerSideProps(
+  store => async () => {
+    await store.dispatch(fetchBusiness());
+
+    return {
+      props: {
+        business: store.getState().business,
+      },
+    };
+  }
+);
 
 export default Cart;
