@@ -1,31 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import Head from 'next/head';
-import { NextPage } from 'next';
-import { fetchDataProduct, fetchRecommendationProducts } from '@/redux/dataActions';
-import { fetchBusiness, selectBusiness } from '@/redux/reducers/businessSlice';
-import { AppState, wrapper } from '@/redux/store';
-import { connect, useDispatch } from 'react-redux';
-import { useSelector } from 'react-redux';
-import { Business, Product } from '@/lib/Interfaces';
-import { selectProduct } from '@/redux/reducers/productSlice';
-
-import { BASE_IMG, BASE_URL } from '@/lib/Common';
-import { useTranslation } from '@/localization';
-import { Heart, Share2, ClipboardList as OrderNotes } from 'lucide-react';
-import { Input } from 'antd';
-
-import Image from 'next/image';
-import Back from '@/components/Common/Back';
-import Shear from '@/components/Shear';
-import DefaultLayout from '@/components/Layout/DefaultLayout';
-
-import { addFavorite, isFavorite, removeFavorite } from '@/redux/reducers/favoritesSlice';
-import { useRouter } from 'next/router';
-import Recommendation from '@/components/Recommendation';
-import { Counter } from '@/components/cart/Counter';
-import { selectCartNotes, updateCartItem } from '@/redux/reducers/cartSlice';
-import IconText from '@/components/Navbar/IconText';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Input } from 'antd';
+import { Heart, ClipboardList as OrderNotes, Share2 } from 'lucide-react';
+import Head from 'next/head';
+import Image from 'next/image';
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import Back from '@/components/Common/Back';
+import DefaultLayout from '@/components/Layout/DefaultLayout';
+import Recommendation from '@/components/Recommendation';
+import Shear from '@/components/Shear';
+import { BASE_IMG, BASE_URL } from '@/lib/Common';
+import { Business, Product } from '@/lib/Interfaces';
+import { useTranslation } from '@/localization';
+import { fetchData, fetchDataProduct } from '@/redux/dataActions';
+import { selectBusiness } from '@/redux/reducers/businessSlice';
+import { selectCart, addToCart, incrementItemQuantity, decrementItemQuantity, updateCartItem, removeFromCart } from '@/redux/reducers/cartSlice';
+import { selectFavorites, addFavorite, removeFavorite } from '@/redux/reducers/favoritesSlice';
+import { selectProduct } from '@/redux/reducers/productSlice';
+import { AppState, wrapper } from '@/redux/store';
+import { NextPage } from 'next';
+
 const { TextArea } = Input;
 
 interface ProductProps {
@@ -33,116 +28,152 @@ interface ProductProps {
   product?: Product;
 }
 
-const index: NextPage<ProductProps> = () => {
+const ProductPage: NextPage<ProductProps> = ({ product }) => {
   const { t, currentLanguage } = useTranslation();
   const dispatch = useDispatch();
   const router = useRouter();
+  const { title } = router.query as { title: string };
 
-  const ph = '/placeholder.svg'; // Path to Placeholder image
+  const placeholderImage = '/placeholder.svg'; // Placeholder image path
 
-  const bs = useSelector(selectBusiness);
-  const pr = useSelector(selectProduct);
+  const businessState = useSelector(selectBusiness);
+  const productState = useSelector(selectProduct);
+  const cart = useSelector(selectCart);
+  const favorites = useSelector(selectFavorites);
 
-  const selectedNotes = useSelector((state: AppState) => selectCartNotes(state)(pr?.uuid));
   const [isShearVisible, setShearVisible] = useState(false);
-  const [notes, setNotes] = useState(selectedNotes);
-  const [productNotes, setProductNotes] = useState(notes);
-  const [isClient, setIsClient] = useState(false);
-  const [isLoading, setIsLoading] = useState(false); // Loading state for the button
+  const [notes, setNotes] = useState('');
+  const [productNotes, setProductNotes] = useState('');
+  const [isAddedToCart, setIsAddedToCart] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [isProductFavorite, setIsProductFavorite] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleNotesChange = () => {
-    dispatch(updateCartItem({ item_uuid: pr?.uuid, updates: { notes: productNotes } }));
+  const selectedCartItem = cart.find((item) => item.uuid === productState?.item?.uuid);
+
+  useEffect(() => {
+    if (productState?.item && selectedCartItem) {
+      setIsAddedToCart(true);
+      setQuantity(selectedCartItem.quan);
+    }
+  }, [productState, selectedCartItem]);
+
+  useEffect(() => {
+    if (productState?.item) {
+      const isFavorite = favorites.some((favorite) => favorite.uuid === productState.item.uuid);
+      setIsProductFavorite(isFavorite); // Update the favorite state
+    }
+  }, [productState, favorites]);
+
+  const handleAddToCart = () => {
+    if (productState?.item) {
+      dispatch(addToCart({ ...productState.item, quan: quantity }));
+      setIsAddedToCart(true);
+    }
   };
 
-  const isProductFavorite = useSelector((state: AppState) => isFavorite(state)(pr?.uuid));
-  const fullProductUrl = `${BASE_URL}${router.asPath}`; // Shear link
+  const handleNotesChange = () => {
+    if (productState) {
+      dispatch(updateCartItem({ uuid: productState.item.uuid, updates: { notes: productNotes } }));
+    }
+  };
 
-  const toggleFav = () => {
-    if (pr) {
-      if (isProductFavorite) {
-        dispatch(removeFavorite(pr.uuid));
+  const handleIncrement = () => {
+    if (productState?.item) {
+      dispatch(incrementItemQuantity(productState.item.uuid));
+      setQuantity(quantity + 1);
+    }
+  };
+
+  const handleDecrement = () => {
+    if (productState?.item) {
+      if (quantity > 1) {
+        dispatch(decrementItemQuantity(productState.item.uuid));
+        setQuantity(quantity - 1);
       } else {
-        dispatch(addFavorite(pr));
+        dispatch(removeFromCart(productState.item.uuid));
+        setIsAddedToCart(false);
+        setQuantity(1); // Reset to 1 as it's removed from the cart
       }
     }
   };
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const handleToggleFavorite = () => {
+    if (isProductFavorite) {
+      dispatch(removeFavorite(productState.item.uuid));
+    } else {
+      dispatch(addFavorite(productState.item));
+    }
+    setIsProductFavorite(!isProductFavorite);
+  };
 
   const handleContinueToCart = async () => {
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate API call
       router.push('/cart');
     } catch (error) {
       console.error('Error during navigation', error);
     }
     setIsLoading(false);
   };
+
   return (
     <DefaultLayout>
       <Head>
         <title>
           {currentLanguage === 'ar'
-            ? `${bs.title_ar} - ${pr?.item?.title}`
-            : `${bs.title_en} - ${pr?.item?.title}`}
+            ? `${businessState.title_ar} - ${productState?.item?.title}`
+            : `${businessState.title_en} - ${productState?.item?.title}`}
         </title>
-        <meta property="og:description" content={pr?.item?.description} key="title" />
+        <meta property="og:description" content={productState?.item?.description} key="description" />
       </Head>
       <Shear
         isVisible={isShearVisible}
         onClose={() => setShearVisible(false)}
-        productUrl={fullProductUrl}
-        productTitle={pr?.item?.title}
+        productUrl={`${BASE_URL}${router.asPath}`}
+        productTitle={productState?.item?.title}
       />
-      <div className="flex flex-col  min-h-screen ">
-        <div className=" pb-5 w-full">
+      <div className="flex flex-col min-h-screen">
+        <div className="pb-5 w-full mt-5">
           <Back />
         </div>
         <div className="flex lg:flex-row flex-col gap-4 w-full">
           <Image
             className="object-cover rounded-xl w-full h-full lg:w-[50%]"
-            src={pr?.item?.image ? `${BASE_IMG}/${pr?.item?.image}` : ph}
+            src={productState?.item?.image ? `${BASE_IMG}/${productState?.item?.image}` : placeholderImage}
             width={600}
             height={600}
             alt="product_img"
           />
-          <div className="flex flex-col lg:px-4 relative px-0 w-full lg:w-[50%] ">
+          <div className="flex flex-col lg:px-4 relative px-0 w-full lg:w-[50%]">
             <div className="flex flex-col sticky top-8 gap-4">
-              <span className="font-bold text-3xl">{pr?.item?.title}</span>
-              <span className="text-xl text-gray-500">{pr?.item?.collection}</span>
+              <span className="font-bold text-3xl">{productState?.item?.title}</span>
+              <span className="text-xl text-gray-500">{productState?.item?.collection}</span>
               <div className="flex w-full mt-4 text-2xl font-bold justify-between items-center">
-                <span className="">
-                  {pr?.item?.price?.toLocaleString('en-US')} {t('currency')}
+                <span>
+                  {productState?.item?.price?.toLocaleString('en-US')} {t('currency')}
                 </span>
                 <div className="flex gap-3">
-                  {isClient ? (
-                    <Heart
-                      onClick={toggleFav}
-                      className={`w-7 cursor-pointer ${
-                        isProductFavorite ? 'text-red-600 fill-current' : 'text-red-600'
-                      }`}
-                    />
-                  ) : (
-                    <Heart onClick={toggleFav} className={`w-7 cursor-pointer text-red-600`} />
-                  )}
-
+                  <Heart
+                    onClick={handleToggleFavorite}
+                    className={`w-7 ml-2 cursor-pointer transition-colors duration-300 ${
+                      isProductFavorite ? 'text-red-600 fill-current' : 'text-gray-600'
+                    }`}
+                  />
                   <Share2
                     onClick={() => setShearVisible(true)}
                     className="w-7 cursor-pointer"
                     style={{
-                      color: bs.mainColor,
+                      color: businessState.mainColor,
                     }}
                   />
                 </div>
               </div>
-              <p className="my-4 text-gray-500">{pr?.item?.description} </p>
               <div
                 className="flex items-center justify-start gap-2"
                 style={{
-                  color: bs.mainColor,
+                  color: businessState.mainColor,
                 }}
               >
                 <OrderNotes className="w-6 h-6" />
@@ -151,19 +182,57 @@ const index: NextPage<ProductProps> = () => {
               <TextArea
                 placeholder={t('notes')}
                 value={productNotes}
-                onChange={e => setProductNotes(e.target.value)}
+                onChange={(e) => setProductNotes(e.target.value)}
                 onBlur={handleNotesChange}
                 rows={6}
               />
-
-              <div>{isClient ? <Counter product={pr} notes={notes} /> : <></>}</div>
-              <div>
-                {isClient ? (
+              {!isAddedToCart ? (
+                <button
+                  onClick={handleAddToCart}
+                  className="text-center text-xl h-12 font-bold flex items-center justify-center gap-4 rounded-full p-2 w-full transition-colors duration-300 cursor-pointer"
+                  style={{
+                    color: businessState.mainColor,
+                    backgroundColor: 'transparent',
+                    border: `1.5px solid ${businessState.mainColor}`,
+                  }}
+                >
+                  {t('Add to Cart')}
+                </button>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <div
+                    className="flex gap-2 items-center"
+                    style={{
+                      backgroundColor: businessState.mainColor,
+                      width: '100%',
+                      borderRadius: '50px',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <button
+                      onClick={handleDecrement}
+                      className="text-xl font-bold px-4 py-2 rounded-full"
+                      style={{ border: `1.5px solid ${businessState.mainColor}`, color: 'white' }}
+                    >
+                      -
+                    </button>
+                    <span style={{ color: 'white' }} className="text-xl font-bold">
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={handleIncrement}
+                      className="text-xl font-bold px-4 py-2 rounded-full"
+                      style={{ border: `1.5px solid ${businessState.mainColor}`, color: 'white' }}
+                    >
+                      +
+                    </button>
+                  </div>
                   <button
                     style={{
-                      color: bs.mainColor,
+                      color: businessState.mainColor,
                       backgroundColor: 'transparent',
-                      border: `1.5px solid ${bs.mainColor}`,
+                      border: `1.5px solid ${businessState.mainColor}`,
                     }}
                     className="text-center text-xl h-12 font-bold flex items-center justify-center gap-4 rounded-full p-2 w-full transition-colors duration-300 cursor-pointer"
                     onClick={handleContinueToCart}
@@ -171,10 +240,8 @@ const index: NextPage<ProductProps> = () => {
                   >
                     {isLoading ? <LoadingOutlined /> : t('continueToCart')}
                   </button>
-                ) : (
-                  <></>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -187,29 +254,31 @@ const index: NextPage<ProductProps> = () => {
   );
 };
 
-/* --------------------------------- Server --------------------------------- */
-// Getting data as SSR
-export const getServerSideProps = wrapper.getServerSideProps(store => async ({ query }) => {
-  console.log('query is: ', query);
+export const getServerSideProps = wrapper.getServerSideProps((store) => async ({ query }) => {
   const { id } = query as { id: string };
-  console.log('id is :', id);
+
   if (id) {
     await store.dispatch(fetchDataProduct(id));
-    await store.dispatch(fetchBusiness());
-    const product = store.getState()?.products.product;
-    // await store.dispatch(fetchRecommendationProducts(product.collection));
+    await store.dispatch(fetchData());
+
+    const state = store.getState();
+    const product = state.products.product || null;
+    const business = state.business.business || null;
+
     return {
       props: {
-        business: store.getState().business,
-        product: product ?? null,
+        product,
+        business,
       },
     };
   }
-  return { notFound: true };
+  return {
+    props: {
+      product: null,
+      business: null,
+    },
+  };
 });
-const mapStateToProps = (state: AppState) => ({
-  business: state.business,
-  products: state.products,
-});
-export default connect(mapStateToProps)(index);
-/* ----------------------------------- -- ----------------------------------- */
+
+
+export default ProductPage;

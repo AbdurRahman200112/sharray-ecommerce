@@ -1,13 +1,15 @@
 import { selectBusiness } from '@/redux/reducers/businessSlice';
-import React from 'react';
 import { useSelector } from 'react-redux';
 
 export const LoaderWhite = () => {
   const bs = useSelector(selectBusiness);
+  
   return (
     <div className="w-full flex items-center justify-center">
       <span className="loader"></span>
-      <style jsx global>{`
+      
+      {/* Scoped styles for the loader */}
+      <style jsx>{`
         .loader {
           width: 18px;
           height: 18px;
@@ -15,13 +17,14 @@ export const LoaderWhite = () => {
           position: relative;
           animation: rotate 1s linear infinite;
         }
+
         .loader::before {
           content: '';
           box-sizing: border-box;
           position: absolute;
           inset: 0px;
           border-radius: 50%;
-          border: 5px solid #fff;
+          border: 5px solid white; /* Hard-coded white color */
           animation: prixClipFix 2s linear infinite;
         }
 

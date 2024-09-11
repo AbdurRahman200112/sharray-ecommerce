@@ -8,12 +8,13 @@ import DefaultLayout from '@/components/Layout/DefaultLayout';
 import * as SuccessLottie from '@/lotties/Success.json';
 import { selectBusiness } from '@/redux/reducers/businessSlice';
 import { useRouter } from 'next/router';
+import LoaderSpinner from '@/components/LoaderSpinner'; // Import the LoaderSpinner component
 
 const Success = () => {
   const { t, currentLanguage } = useTranslation();
   const router = useRouter();
   const [orderNo, setOrderNo] = useState(0);
-  const [isClient, setIsClient] = useState(false);
+  const [loading, setLoading] = useState(true); // Add loading state
   const bs = useSelector(selectBusiness);
 
   useEffect(() => {
@@ -22,10 +23,10 @@ const Success = () => {
       if (!cameFromCheckout) {
         router.push('/');
       } else {
-        setIsClient(true);
         setTimeout(() => {
           localStorage.removeItem('cameFromCheckout');
-        }, 5000);
+          setLoading(false); // Hide loader after processing
+        }, 2000); // Simulate a loading delay of 2 seconds
       }
 
       const ls = localStorage.getItem('latestOrder');
@@ -35,7 +36,9 @@ const Success = () => {
 
   return (
     <>
-      {isClient && (
+      {loading ? (
+        <LoaderSpinner /> // Show loader while loading
+      ) : (
         <DefaultLayout>
           <Head>
             <title>
@@ -46,10 +49,10 @@ const Success = () => {
             <meta
               property="og:description"
               content={currentLanguage === 'ar' ? bs.descr_ar : bs.descr_en}
-              key="title"
+              key="description"
             />
           </Head>
-          <div className="flex flex-col justify-center items-center">
+          <div className="flex flex-col justify-center items-center p-6">
             <Lottie
               animationData={SuccessLottie}
               autoPlay={true}
@@ -57,29 +60,16 @@ const Success = () => {
               height={250}
               width={250}
             />
-            <div className="flex flex-col justify-center items-center gap-2 text-center">
-              <span className="font-bold text-3xl">{t('successOrderThankYou')}</span>
-              <span>{t('successOrderMsg')}</span>
-              <span
-                style={{
-                  color: bs.mainColor,
-                }}
-                className="text-md lg:text-xl font-light text-center lg:w-[50%] px-4"
-              >
-                {t('successOrderNo')} #{orderNo}
-              </span>
-              <span className="text-gray-500">{t('successOrderNote')}</span>
-            </div>
-            <Link
-              style={{
-                background: bs.mainColor,
-                color: bs.textColor,
-              }}
-              className="w-44 h-12 flex items-center justify-center font-light py-2 px-5 mt-5 rounded-full transition-all ease-linear shadow-lg hover:scale-110  hover:bg-opacity-95 text-white text-sm"
-              href={'/'}
-              replace={true}
-            >
-              {t('homePage')}
+            <h1 className="text-2xl font-semibold mt-4">
+              {t('order_success')}
+            </h1>
+            <p className="text-lg mt-2">
+              {t('your_order_number')}: {orderNo}
+            </p>
+            <Link href="/">
+              <a className="mt-4 text-blue-500 hover:underline">
+                {t('back_to_home')}
+              </a>
             </Link>
           </div>
         </DefaultLayout>

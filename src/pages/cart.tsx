@@ -13,9 +13,7 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 import { notification } from 'antd';
 import { validateLang } from '@/lib/Fuctions';
 import { Business } from '@/lib/Interfaces';
-
-/* --------------------------------- Lottie --------------------------------- */
-/* ----------------------------------- -- ----------------------------------- */
+import LoaderSpinner from '@/components/LoaderSpinner';
 
 interface CartProps {
   business: Business | null; // Adjust type to handle possible null value
@@ -32,29 +30,39 @@ const Cart: NextPage<CartProps> = ({ business }) => {
     width: '50%',
     height: '35%',
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setIsClient(true);
 
-    function updateModalSize() {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+
+    const updateModalSize = () => {
       if (window.innerWidth < 768) {
         setModalSize({ width: '80%', height: '37%' });
       } else {
         setModalSize({ width: '50%', height: '35%' });
       }
-    }
+    };
 
     window.addEventListener('resize', updateModalSize);
     updateModalSize();
 
-    return () => window.removeEventListener('resize', updateModalSize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateModalSize);
+    };
   }, []);
 
   const handleClearCart = () => {
     dispatch(clearCart());
     setIsModalOpen(false);
     notification.success({
-      message: validateLang(currentLanguage) ? 'تم إفراغ السلة بنجاح' : 'Cart Emptied Successfully',
+      message: validateLang(currentLanguage)
+        ? 'تم إفراغ السلة بنجاح'
+        : 'Cart Emptied Successfully',
     });
   };
 
@@ -94,22 +102,27 @@ const Cart: NextPage<CartProps> = ({ business }) => {
     },
   };
 
-  // Provide default values if business is undefined
-  const title = business ? (currentLanguage === 'ar' ? business.title_ar : business.title_en) : 'Cart';
-  const description = business ? (currentLanguage === 'ar' ? business.descr_ar : business.descr_en) : '';
+  const title = business
+    ? currentLanguage === 'ar'
+      ? business.title_ar
+      : business.title_en
+    : 'Cart';
+  const description = business
+    ? currentLanguage === 'ar'
+      ? business.descr_ar
+      : business.descr_en
+    : '';
 
   return (
     <>
       <DefaultLayout>
         <Head>
           <title>{`${title} - Cart`}</title>
-          <meta
-            property="og:description"
-            content={description}
-            key="description"
-          />
+          <meta property="og:description" content={description} key="description" />
         </Head>
-        {isClient ? (
+        {loading ? (
+          <LoaderSpinner />
+        ) : (
           <div className="w-full">
             {cartStore.length === 0 ? (
               <Empty />
@@ -128,15 +141,13 @@ const Cart: NextPage<CartProps> = ({ business }) => {
                       <span className="mt-1">{t('emptyCart')}</span>
                     </button>
                   </div>
-                  {cartStore.map(item => (
-                    <HorizontalCard cartItem={item} key={item.item_uuid} />
+                  {cartStore.map((item) => (
+                    <HorizontalCard cartItem={item} key={item.uuid || item.item_uuid} />
                   ))}
                 </div>
               </div>
             )}
           </div>
-        ) : (
-          <div>Loading...</div>
         )}
       </DefaultLayout>
       <Modal
@@ -155,10 +166,7 @@ const Cart: NextPage<CartProps> = ({ business }) => {
             >
               {t('confirm')}
             </button>
-            <button
-              onClick={closeModal}
-              className="py-2 px-4 bg-gray-200 text-black rounded-md"
-            >
+            <button onClick={closeModal} className="py-2 px-4 bg-gray-200 text-black rounded-md">
               {t('cancel')}
             </button>
           </div>

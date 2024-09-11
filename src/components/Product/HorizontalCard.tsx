@@ -1,54 +1,74 @@
-import Image from 'next/image';
-import Link from 'next/link';
-import { useDispatch, useSelector } from 'react-redux';
-import { useTranslation } from '@/localization';
-import { useState } from 'react';
 import { BASE_IMG } from '@/lib/Common';
-import { selectBusiness } from '@/redux/reducers/businessSlice';
 import { CartItem } from '@/lib/Interfaces';
-import { Plus, Minus, Trash2 } from 'lucide-react';
+import { useTranslation } from '@/localization';
+import { selectBusiness } from '@/redux/reducers/businessSlice';
 import {
-  removeFromCart,
   decrementItemQuantity,
   incrementItemQuantity,
+  removeFromCart,
 } from '@/redux/reducers/cartSlice';
-import Modal from 'react-modal';
+import { Minus, Plus, Trash2 } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { ConfirmationModal } from '../Common/ConfirmationModal';
 
-export default function HorizontalCard({ cartItem }: { cartItem: CartItem }) {
-  const ph = '/placeholder.svg'; // Path to Placeholder image
+interface HorizontalCardProps {
+  cartItem: CartItem;
+}
+
+const HorizontalCard: React.FC<HorizontalCardProps> = ({ cartItem }) => {
   const { t } = useTranslation();
   const bs = useSelector(selectBusiness);
-
   const dispatch = useDispatch();
+
   const [imageError, setImageError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const closeModal = () => setIsModalOpen(false);
+  const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
   const [isHoveringPlus, setIsHoveringPlus] = useState(false);
   const [isHoveringMinus, setIsHoveringMinus] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+
+  const closeModal = () => setIsModalOpen(false);
   const handleMouseEnterPlus = () => setIsHoveringPlus(true);
   const handleMouseLeavePlus = () => setIsHoveringPlus(false);
   const handleMouseEnterMinus = () => setIsHoveringMinus(true);
   const handleMouseLeaveMinus = () => setIsHoveringMinus(false);
 
+  const openConfirmationModal = (uuid: string) => {
+    setSelectedUuid(uuid);
+    setIsModalOpen(true);
+  };
+
+  const handleRemoveItem = () => {
+    if (selectedUuid) {
+      setIsVisible(false);
+      dispatch(removeFromCart(selectedUuid));
+      closeModal();
+    }
+  };
+
+  if (!isVisible) return null;
+
   return (
     <div
       style={{ borderColor: bs.mainColor }}
-      className="bg-white shadow-md rounded-xl overflow-hidden my-4 p-4 border-2 transition-transform duration-500 ease-in-out delay-150 hover:scale-105"
+      className="bg-white shadow-md rounded-xl overflow-hidden my-4 p-4 border-2 transition-transform duration-500 ease-in-out delay-150"
     >
       <div className="flex items-center justify-between h-32 gap-4">
         <Link
-          href={`/product/${cartItem.item_uuid}`}
+          href={`/${cartItem.uuid}`}
           className="flex-shrink-0 lg:w-[20%] w-[30%] p-3 rounded-xl transition-transform duration-400 ease-in-out delay-200 hover:scale-110"
         >
           <Image
             className={`object-cover w-full h-full rounded-xl min-h-full transition-opacity duration-700 ease-in-out delay-100`}
             width={80}
             height={80}
-            src={imageError ? ph : `${BASE_IMG}/${cartItem.image}`}
+            src={imageError ? '/placeholder.svg' : `${BASE_IMG}/${cartItem.image}`}
             alt={cartItem.title || 'Product Image'}
             placeholder="blur"
-            blurDataURL={ph}
+            blurDataURL="/placeholder.svg"
             onError={() => setImageError(true)}
             loading="lazy"
           />
@@ -56,7 +76,7 @@ export default function HorizontalCard({ cartItem }: { cartItem: CartItem }) {
         <div className="flex-grow p-2">
           <div className="flex items-start justify-between mb-2">
             <Link
-              href={`/product/${cartItem.item_uuid}`}
+              href={`/${cartItem.uuid}`}
               className="text-xl font-semibold transition-colors duration-300 delay-100 hover:text-blue-600"
             >
               {cartItem.title}
@@ -64,8 +84,8 @@ export default function HorizontalCard({ cartItem }: { cartItem: CartItem }) {
 
             <button
               title="Remove product from cart"
-              className="cursor-pointer text-red-500 transition-colors duration-300 delay-100 hover:text-red-700"
-              onClick={() => setIsModalOpen(true)}
+              className="cursor-pointer text-red-500"
+              onClick={() => openConfirmationModal(cartItem.uuid)}
             >
               <Trash2 />
             </button>
@@ -86,9 +106,9 @@ export default function HorizontalCard({ cartItem }: { cartItem: CartItem }) {
                 }}
                 onClick={() => {
                   if (cartItem.quan === 1) {
-                    setIsModalOpen(true);
+                    openConfirmationModal(cartItem.uuid);
                   } else {
-                    dispatch(decrementItemQuantity(cartItem.item_uuid));
+                    dispatch(decrementItemQuantity(cartItem.uuid));
                   }
                 }}
                 onMouseEnter={handleMouseEnterMinus}
@@ -105,7 +125,7 @@ export default function HorizontalCard({ cartItem }: { cartItem: CartItem }) {
                   backgroundColor: isHoveringPlus ? bs.mainColor : 'transparent',
                   color: isHoveringPlus ? bs.textColor : bs.mainColor,
                 }}
-                onClick={() => dispatch(incrementItemQuantity(cartItem.item_uuid))}
+                onClick={() => dispatch(incrementItemQuantity(cartItem.uuid))}
                 onMouseEnter={handleMouseEnterPlus}
                 onMouseLeave={handleMouseLeavePlus}
               >
@@ -116,10 +136,13 @@ export default function HorizontalCard({ cartItem }: { cartItem: CartItem }) {
         </div>
       </div>
       <ConfirmationModal
-        uuid={cartItem.item_uuid}
+        uuid={selectedUuid}
         openModal={isModalOpen}
         closeModal={closeModal}
+        onConfirm={handleRemoveItem}
       />
     </div>
   );
-}
+};
+
+export default HorizontalCard;

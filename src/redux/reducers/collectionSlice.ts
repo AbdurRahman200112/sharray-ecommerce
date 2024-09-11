@@ -1,8 +1,8 @@
+import { Collection } from '@/lib/Interfaces';
 import { createSlice } from '@reduxjs/toolkit';
 import { HYDRATE } from 'next-redux-wrapper';
-import { AppState, AppThunk } from '../store';
 import { fetchDataCollection } from '../dataActions';
-import { Collection } from '@/lib/Interfaces';
+import { AppState, AppThunk } from '../store';
 
 export const CollectionSlice = createSlice({
   name: 'collection',

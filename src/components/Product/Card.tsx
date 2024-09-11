@@ -1,69 +1,79 @@
-import Image from 'next/image';
-import Link from 'next/link';
-
-import { useEffect, useState } from 'react';
 import { BASE_IMG } from '@/lib/Common';
-import { useTranslation } from '@/localization/index';
-
-import { Check, Plus } from 'lucide-react';
-
-import { useDispatch, useSelector } from 'react-redux';
-import { selectBusiness } from '@/redux/reducers/businessSlice';
 import { Product } from '@/lib/Interfaces';
+import { useTranslation } from '@/localization/index';
+import { selectBusiness } from '@/redux/reducers/businessSlice';
 import { addToCart, isProductCart } from '@/redux/reducers/cartSlice';
+import { addFavorite, removeFavorite, selectFavorites } from '@/redux/reducers/favoritesSlice';
 import { AppState } from '@/redux/store';
 import { notification } from 'antd';
-import { validateDirection, validateLang } from '@/lib/Fuctions';
+import { Check, Heart, Loader2, ShoppingCart } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 
-export default function Card({ product }: { product: Product }) {
-  const ph = '/placeholder.svg'; // Path to Placeholder image
+export default function Card({ product }: { product: Product | null }) {
+  const ph = '/placeholder.svg';
   const { t, currentLanguage } = useTranslation();
   const dispatch = useDispatch();
 
   const bs = useSelector(selectBusiness);
-  const { mainColor, textColor, title_ar, title_en, logo } = bs;
-  const [windowWidth, setWindowWidth] = useState(0);
+  const favorites = useSelector(selectFavorites);
+  const { mainColor, textColor } = bs;
   const [imageError, setImageError] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  const productInCart = useSelector((state: AppState) => isProductCart(state)(product?.uuid));
-  // Adding the product to the cart without note
+  const [isLoading, setIsLoading] = useState(false);
+
+  const productInCart = product ? useSelector((state: AppState) => isProductCart(state)(product.uuid)) : false;
+  const isProductFavorite = product ? favorites.some(favorite => favorite.uuid === product.uuid) : false;
+
   const handleAddToCart = () => {
-    const productToAdd: any = {
+    if (!product) return;
+    setIsLoading(true);
+    const productToAdd = {
       ...product,
       quan: 1,
       notes: '',
     };
-    dispatch(addToCart(productToAdd));
-    notification.success({
-      message: validateLang(currentLanguage) ? 'تم اضافة العنصر الى السلة' : 'Item Added to cart',
-      placement: validateDirection(currentLanguage),
-    });
+    setTimeout(() => {
+      dispatch(addToCart(productToAdd));
+      setIsLoading(false);
+      notification.success({
+        message: currentLanguage === 'ar' ? 'تم اضافة العنصر الى السلة' : 'Item Added to cart',
+        placement: currentLanguage === 'ar' ? 'topLeft' : 'topRight',
+      });
+    }, 2000);
   };
 
-  useEffect(() => {
-    setIsClient(true);
-    setWindowWidth(window.innerWidth);
+  const handleToggleFavorite = () => {
+    if (!product) return;
 
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
+    if (isProductFavorite) {
+      dispatch(removeFavorite(product.uuid));
+      notification.success({
+        message: currentLanguage === 'ar' ? 'تم إزالة العنصر من المفضلة' : 'Item removed from favorites',
+        placement: currentLanguage === 'ar' ? 'topLeft' : 'topRight',
+      });
+    } else {
+      dispatch(addFavorite(product));
+      notification.success({
+        message: currentLanguage === 'ar' ? 'تم إضافة العنصر إلى المفضلة' : 'Item added to favorites',
+        placement: currentLanguage === 'ar' ? 'topLeft' : 'topRight',
+      });
+    }
+  };
 
-    window.addEventListener('resize', handleResize);
+  if (!product) return null;
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
   return (
     <>
       <div
         key={product.uuid}
-        className="rounded-xl h-fit bg-white border-[0.9px] w-full animate-fadeInBottom hover:lg:scale-[1.02]  transition-all duration-200 ease-in-out"
+        className="rounded-xl h-fit bg-white border-[0.9px] w-full animate-fadeInBottom hover:lg:scale-[1.02] transition-all duration-200 ease-in-out"
       >
-        <Link key={product.uuid} href={`/${product.uuid}`}>
-          <div className="w-full relative lg:h-[68%] flex justify-center items-center overflow-hidden">
+        <Link href={`/${product.uuid}`}>
+          <div className="w-full relative lg:h-[60%] md:h-[55%] h-[45%] flex justify-center items-center overflow-hidden">
             <Image
-              className={`object-cover w-full h-56 lg:h-72 rounded-t-xl min-h-full transition-opacity duration-500 animate-fadeIn`}
+              className={`object-cover w-full h-48 md:h-56 lg:h-64 rounded-t-xl min-h-full transition-opacity duration-500 animate-fadeIn`}
               width={240}
               loading="lazy"
               height={180}
@@ -75,69 +85,54 @@ export default function Card({ product }: { product: Product }) {
             />
 
             <div
-              className="absolute bottom-2 left-2 px-4 py-1 pt-1.5 rounded-full text-xs"
+              className="absolute bottom-2 left-2 px-3 py-1 rounded-full text-xs"
               style={{
                 color: textColor,
                 backgroundColor: mainColor,
               }}
             >
-              {product.collection}
+              {product.collection || 'Unknown Collection'}
             </div>
           </div>
         </Link>
-        <div className="w-full md:p-2 flex flex-col justify-between h-[30%] leading-5 font-bold text-black">
-          <Link
-            key={product.uuid}
-            href={`/${product.uuid}`}
-            className="flex flex-col p-2 md:p-0 lg:h-14 h-full "
-          >
-            <span className="lg:text-xl text-md lg:line-clamp-3 line-clamp-2">{product.title}</span>
-            <span className="text-xs text-wrap font-light truncate mt-2 px-1">
-              {product.description ? product.description : ''}
+        <div className="w-full p-2 md:p-2 lg:p-3 flex flex-col justify-between leading-5 font-bold text-black">
+          <Link href={`/${product.uuid}`} className="flex flex-col p-1 lg:p-0 h-full ">
+            <span className="lg:text-lg md:text-md text-sm lg:line-clamp-3 line-clamp-2">
+              {product.title || 'Untitled Product'}
             </span>
           </Link>
 
-          <div className="flex md:flex-row  flex-col justify-between items-center pt-5">
-            <span
-              style={{
-                borderColor: mainColor,
-              }}
-              className="mt-2 flex gap-1 w-full md:border-none border-t-[0.9px] py-2 md:py-0 justify-center md:justify-start text-xl items-start"
-            >
-              {product.price.toLocaleString('en-US')}
-              <span className="lg:text-lg text-sm">{t('currency')}</span>
+          <div className="flex justify-between items-center pt-4 md:pt-3">
+            <Heart
+              onClick={handleToggleFavorite}
+              className={`w-6 md:w-7 cursor-pointer transition-colors duration-300 ${
+                isProductFavorite ? 'text-red-600 fill-current' : 'text-gray-600'
+              }`}
+            />
+
+            <span className="text-center text-lg md:text-xl">
+              {product.price ? product.price.toLocaleString('en-US') : 'N/A'} {t('currency')}
             </span>
-            {windowWidth <= 768 ? (
-              <button
-                style={{ color: textColor, backgroundColor: mainColor }}
-                className="w-full rounded-b-xl py-3"
-                onClick={handleAddToCart}
-              >
-                {isClient ? productInCart ? t('alreadyAdded') : t('add') : <></>}
-              </button>
-            ) : (
-              <div className="group">
-                {productInCart ? (
-                  <div
-                    style={{ color: mainColor, borderColor: mainColor }}
-                    className="lg:w-12 w-10 lg:h-12 h-10 rounded-full border-[1.2px] flex items-center justify-center cursor-not-allowed"
-                  >
-                    <Check />
-                  </div>
-                ) : (
-                  <button
-                    style={{ color: mainColor, borderColor: mainColor }}
-                    className="border-[1.2px] font-bold lg:w-12 w-10 lg:h-12 h-10 flex text-2xl flex-row justify-center items-center rounded-full transition-all duration-400 ease-in-out group-hover:w-fit group-hover:px-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-mainColor"
-                    onClick={handleAddToCart}
-                  >
-                    <span className="hidden lg:group-hover:flex mx-2 mt-1 transition-opacity delay-300 duration-500 ease-in-out text-xl opacity-0 group-hover:opacity-100">
-                      {t('add')}
-                    </span>
-                    <Plus />
-                  </button>
-                )}
-              </div>
-            )}
+
+            <div className="group">
+              {productInCart ? (
+                <div
+                  style={{ color: mainColor, borderColor: mainColor }}
+                  className="md:w-10 w-9 md:h-10 h-9 rounded-full border-[1.2px] flex items-center justify-center cursor-not-allowed"
+                >
+                  <Check />
+                </div>
+              ) : (
+                <button
+                  style={{ color: mainColor, borderColor: mainColor }}
+                  className="font-bold w-9 h-9 md:w-10 md:h-10 text-lg md:text-xl flex justify-center items-center rounded-full transition-all duration-400 ease-in-out"
+                  onClick={handleAddToCart}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="animate-spin" /> : <ShoppingCart />}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

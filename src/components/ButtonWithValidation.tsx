@@ -6,7 +6,6 @@ import PropTypes from 'prop-types';
 
 const ButtonWithValidation = ({ onValidation, children, mainColor, textColor, isSending }) => {
   const [counter, setCounter] = useState(0);
-  const [counterna, setCounterna] = useState(0);
   const [msg, setMsg] = useState({
     keysOnUp: 0,
     tapsCount: 0,
@@ -14,28 +13,28 @@ const ButtonWithValidation = ({ onValidation, children, mainColor, textColor, is
 
   useEffect(() => {
     const button = document.getElementById('validationButton');
-    const buttonRect = button.getBoundingClientRect();
-    const btnClicks = Math.trunc(Number(buttonRect.top) + Number(buttonRect.left));
-    setMsg(prevMsg => ({
-      ...prevMsg,
-      screenWidth: window.screen.width,
-      screenHeight: window.screen.height,
-      innerScreenWidth: window.innerWidth,
-      innerScreenHeight: window.innerHeight,
-      btnClicks: btnClicks,
-    }));
+    if (button) {
+      const buttonRect = button.getBoundingClientRect();
+      const btnClicks = Math.trunc(Number(buttonRect.top) + Number(buttonRect.left));
 
-    const handleKeyup = () =>
-      setCounterna(prev => {
-        setMsg(prevMsg => ({ ...prevMsg, keysOnUp: prev + 1 }));
-        return prev + 1;
-      });
+      setMsg(prevMsg => ({
+        ...prevMsg,
+        screenWidth: window.screen.width,
+        screenHeight: window.screen.height,
+        innerScreenWidth: window.innerWidth,
+        innerScreenHeight: window.innerHeight,
+        btnClicks: btnClicks,
+      }));
+    }
 
-    const handleClick = () =>
-      setCounter(prev => {
-        setMsg(prevMsg => ({ ...prevMsg, tapsCount: prev + 1 }));
-        return prev + 1;
-      });
+    const handleKeyup = () => {
+      setMsg(prevMsg => ({ ...prevMsg, keysOnUp: prevMsg.keysOnUp + 1 }));
+    };
+
+    const handleClick = () => {
+      setCounter(prev => prev + 1);
+      setMsg(prevMsg => ({ ...prevMsg, tapsCount: prevMsg.tapsCount + 1 }));
+    };
 
     window.addEventListener('keyup', handleKeyup);
     window.addEventListener('click', handleClick);
@@ -47,13 +46,11 @@ const ButtonWithValidation = ({ onValidation, children, mainColor, textColor, is
   }, []);
 
   const encryptByAES = (string, key) => {
-    // console.log("Original String before encryption: ", string); // lgging original string before encryption
-    let ckey = CryptoJS.enc.Utf8.parse(key);
-    let encrypted = CryptoJS.AES.encrypt(string, ckey, {
+    const ckey = CryptoJS.enc.Utf8.parse(key);
+    const encrypted = CryptoJS.AES.encrypt(string, ckey, {
       mode: CryptoJS.mode.ECB,
       padding: CryptoJS.pad.Pkcs7,
     });
-    // console.log("Encrypted String: ", encrypted.ciphertext.toString()); // Logging encrypted string
     return encrypted.ciphertext.toString();
   };
 
@@ -61,34 +58,34 @@ const ButtonWithValidation = ({ onValidation, children, mainColor, textColor, is
 
   const handleClick = async () => {
     try {
-      // console.log("Data before encryption: ", msg); // logging msg object before encryption
       if (onValidation) await onValidation(msg, encryptByAES, key);
     } catch (error) {
-      console.error(error);
+      console.error('Validation failed:', error);
     }
   };
 
   return (
-    <>
-      <Button
-        disabled={isSending}
-        style={{
-          backgroundColor: mainColor,
-          color: textColor,
-        }}
-        className="w-full flex justify-center items-center h-12  text-lg rounded-full"
-        id="validationButton"
-        onClick={handleClick}
-      >
-        {isSending ? <LoadingOutlined /> : children}
-      </Button>
-    </>
+    <Button
+      disabled={isSending}
+      style={{
+        backgroundColor: mainColor,
+        color: textColor,
+      }}
+      className="w-full flex justify-center items-center h-12 text-lg rounded-full"
+      id="validationButton"
+      onClick={handleClick}
+    >
+      {isSending ? <LoadingOutlined /> : children}
+    </Button>
   );
 };
 
 ButtonWithValidation.propTypes = {
   onValidation: PropTypes.func.isRequired,
   children: PropTypes.node.isRequired,
+  mainColor: PropTypes.string.isRequired,
+  textColor: PropTypes.string.isRequired,
+  isSending: PropTypes.bool.isRequired,
 };
 
 export default ButtonWithValidation;

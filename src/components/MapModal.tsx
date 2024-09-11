@@ -1,16 +1,13 @@
-import dynamic from 'next/dynamic';
-import Modal from 'react-modal';
-import { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
-import { useDispatch, useSelector } from 'react-redux';
+import { BASE_GOOGLE } from '@/lib/Common';
 import { useTranslation } from '@/localization/index';
 import { selectBusiness } from '@/redux/reducers/businessSlice';
-import 'leaflet/dist/leaflet.css';
-
-// Dynamically import MapContainer, TileLayer, and Marker from react-leaflet
-const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
+import { faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons'; // Import the solid location pin icon
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { GoogleMap, LoadScript } from '@react-google-maps/api';
+import { X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import Modal from 'react-modal';
+import { useDispatch, useSelector } from 'react-redux';
 
 Modal.setAppElement('#__next');
 
@@ -24,26 +21,11 @@ const fallbackPosition = {
   lng: 44.361488,
 };
 
-function DraggableMarker({ position, setPosition }) {
-  const markerRef = useRef(null);
-
-  const eventHandlers = {
-    dragend() {
-      const marker = markerRef.current;
-      if (marker != null) {
-        setPosition(marker.getLatLng());
-      }
-    },
-  };
-
-  return <Marker position={position} draggable ref={markerRef} eventHandlers={eventHandlers} />;
-}
-
 function MapModal({
   isOpen,
   onRequestClose,
   onConfirm,
-  initialPosition = fallbackPosition,
+  initialPosition,
 }: {
   isOpen: any;
   onRequestClose: any;
@@ -51,14 +33,37 @@ function MapModal({
   initialPosition: any;
 }) {
   const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(true);
+
   const dispatch = useDispatch();
   const bs = useSelector(selectBusiness);
 
   const [center, setCenter] = useState(initialPosition);
   const mapRef = useRef(null);
 
+  const [currentCenter, setCurrentCenter] = useState(initialPosition);
+
+  const onDragEnd = () => {
+    if (mapRef.current) {
+      const newCenter = mapRef.current.getCenter().toJSON();
+      console.log('New Center:', newCenter);
+      setCurrentCenter(newCenter);
+    }
+  };
+
+  const onCenterChanged = () => {
+    if (mapRef.current) {
+      const newCenter = mapRef.current.getCenter().toJSON();
+      console.log('New Center:', newCenter);
+    }
+  };
+
   const handleConfirm = () => {
-    onConfirm(center);
+    if (mapRef.current) {
+      const confirmedCenter = mapRef.current.getCenter().toJSON();
+      console.log('Confirmed Location:', confirmedCenter);
+      onConfirm(confirmedCenter);
+    }
   };
 
   useEffect(() => {
@@ -66,6 +71,15 @@ function MapModal({
       setCenter(initialPosition);
     }
   }, [isOpen, initialPosition]);
+
+  useEffect(() => {
+    console.log('Updated Center:', center);
+  }, [center]);
+
+  const getPixelPositionOffset = (width, height) => ({
+    x: -(width / 2),
+    y: -(height / 2),
+  });
 
   const customStyles = {
     overlay: {
@@ -88,48 +102,72 @@ function MapModal({
   };
 
   return (
-    <Modal style={customStyles} isOpen={isOpen} onRequestClose={onRequestClose}>
-      <MapContainer
-        center={center}
-        zoom={15}
-        style={containerStyle}
-        whenCreated={(map) => (mapRef.current = map)}
+    <>
+      <LoadScript
+        key={isOpen}
+        googleMapsApiKey={BASE_GOOGLE}
+        preventGoogleFontsLoading
+        id="script-loader"
       >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        <DraggableMarker position={center} setPosition={setCenter} />
-      </MapContainer>
-      <div className="left-0 w-full absolute bottom-4 flex justify-center items-center">
-        <button
-          style={{
-            color: bs.textColor,
-            backgroundColor: bs.mainColor,
-          }}
-          className="rounded-full py-3 text-xl w-[50%]"
-          onClick={handleConfirm}
-        >
-          {t('confirmLocationBtn')}
-        </button>
-      </div>
-      <div
-        className="left-0 w-full text-xl fixed inset-0 z-40 flex justify-center items-center z-10"
-        style={{ pointerEvents: 'none' }}
-      >
-        <img className="w-24 h-24" src="/mapmarker.svg" alt="" />
-      </div>
-      <div
-        style={{
-          color: bs.textColor,
-          backgroundColor: bs.mainColor,
-        }}
-        className="left-0 w-full fixed top-0 h-20 rounded-b-xl px-8 flex justify-between items-center"
-      >
-        <X onClick={onRequestClose} />
-        <span className="text-xl">{t('confirmLocation')}</span>
-      </div>
-    </Modal>
+        <Modal style={customStyles} isOpen={isOpen} onRequestClose={onRequestClose}>
+          {isLoading && (
+            <div className="flex justify-center bg-white z-50 absolute items-center h-full">
+              <div className="loader"></div>
+            </div>
+          )}
+
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={center}
+            zoom={15}
+            onLoad={(map) => {
+              setIsLoading(false);
+
+              mapRef.current = map;
+              map.addListener('center_changed', onCenterChanged);
+            }}
+            onDragEnd={onDragEnd}
+          ></GoogleMap>
+          <div className="left-0 w-full absolute bottom-4 flex justify-center items-center">
+            <button
+              style={{
+                color: bs.textColor,
+                backgroundColor: bs.mainColor,
+              }}
+              className="rounded-full py-3 text-xl w-[50%] "
+              onClick={handleConfirm}
+            >
+              {t('confirmLocationBtn')}
+            </button>
+          </div>
+          <div
+            className="left-0 w-full text-xl fixed inset-0 z-40 flex justify-center items-center z-10"
+            style={{ pointerEvents: 'none' }}
+          >
+            {/* Replaced with the location pin icon */}
+            <FontAwesomeIcon
+              icon={faMapMarkerAlt}
+              className="w-18 h-18"
+              style={{ color: '#028181' ,fontSize:'48px'}} // Red color for the location pin
+            />
+          </div>
+          <div
+            style={{
+              color: bs.textColor,
+              backgroundColor: bs.mainColor,
+            }}
+            className="left-0 w-full fixed top-0 h-20 rounded-b-xl px-8 flex justify-between items-center"
+          >
+            <X
+              onClick={(e) => {
+                onRequestClose();
+              }}
+            />
+            <span className="text-xl">{t('confirmLocation')}</span>
+          </div>
+        </Modal>
+      </LoadScript>
+    </>
   );
 }
 

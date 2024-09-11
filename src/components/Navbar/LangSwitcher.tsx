@@ -1,7 +1,11 @@
 import { Languages } from 'lucide-react';
 import { useTranslation } from '../../localization/index';
 
-const LangSwitcher = ({ textColor }: { textColor: string }) => {
+interface LangSwitcherProps {
+  textColor: string;
+}
+
+const LangSwitcher = ({ textColor }: LangSwitcherProps) => {
   const { changeLanguage, currentLanguage } = useTranslation();
 
   const handleSwitchLanguage = () => {
@@ -14,6 +18,7 @@ const LangSwitcher = ({ textColor }: { textColor: string }) => {
       <button
         onClick={handleSwitchLanguage}
         className="flex items-center justify-left gap-2 w-full"
+        style={{ color: textColor }}
       >
         <Languages strokeWidth={1.5} size={18} />
         {currentLanguage === 'ar' ? 'English' : 'العربية'}

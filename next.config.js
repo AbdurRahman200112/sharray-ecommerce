@@ -1,5 +1,14 @@
+const withTM = require('next-transpile-modules')([
+  '@ant-design/icons',
+  '@ant-design/icons-svg',
+  'rc-util',
+  'rc-pagination',
+  'rc-picker',       // Include rc-picker
+  'antd',            // Ensure antd is transpiled
+]);
+
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig = withTM({
   reactStrictMode: true,
   i18n: {
     defaultLocale: 'en',
@@ -14,6 +23,6 @@ const nextConfig = {
       },
     ],
   },
-};
+});
 
 module.exports = nextConfig;

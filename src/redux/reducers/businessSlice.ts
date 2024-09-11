@@ -53,7 +53,7 @@ export const BusinessSlice = createSlice({
 
 export const { setBusinessData } = BusinessSlice.actions;
 export const selectBusiness = (state: AppState) => state.business;
-export const fetchBusiness = (): AppThunk => async dispatch => {
+export const fetchBusiness = (host: string): AppThunk => async dispatch => {
   await dispatch(fetchData());
 };
 

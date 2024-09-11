@@ -6,16 +6,15 @@ import * as emptyFavorites from '@/lotties/favoLottie.json';
 import { useTranslation } from '@/localization';
 
 export const Empty = () => {
-  const { t, currentLanguage } = useTranslation();
+  const { t } = useTranslation();
   const bs = useSelector(selectBusiness);
+
   return (
     <div className="w-full h-full flex flex-col gap-4 items-center justify-center mt-14">
-      <Lottie animationData={emptyFavorites} autoPlay={true} loop={true} height={250} width={250} />
+      <Lottie animationData={emptyFavorites} autoPlay loop style={{ width: 250, height: 250 }} />
       <h1
         className="text-md lg:text-xl font-light text-center w-[50%]"
-        style={{
-          color: bs.mainColor,
-        }}
+        style={{ color: bs.mainColor }}
       >
         {t('noFavouritesMessage')}
       </h1>
@@ -26,7 +25,7 @@ export const Empty = () => {
             backgroundColor: bs.mainColor,
             color: bs.textColor,
           }}
-          href={'/'}
+          href="/"
         >
           {t('homePage')}
         </Link>

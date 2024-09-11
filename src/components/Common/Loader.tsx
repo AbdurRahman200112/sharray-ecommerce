@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 
 export const Loader = () => {
   const bs = useSelector(selectBusiness);
+  
   return (
     <div className="w-full flex items-center justify-center">
       <div className="lds-ellipsis">
@@ -12,7 +13,9 @@ export const Loader = () => {
         <div></div>
         <div></div>
       </div>
-      <style jsx global>{`
+
+      {/* Scoped Styles for Loader Animation */}
+      <style jsx>{`
         .lds-ellipsis {
           display: inline-block;
           position: relative;
@@ -25,7 +28,7 @@ export const Loader = () => {
           width: 13px;
           height: 13px;
           border-radius: 50%;
-          background: ${bs.mainColor};
+          background: ${bs.mainColor}; /* Dynamically setting mainColor from Redux */
           animation-timing-function: cubic-bezier(0, 1, 1, 0);
         }
         .lds-ellipsis div:nth-child(1) {
@@ -44,6 +47,7 @@ export const Loader = () => {
           left: 56px;
           animation: lds-ellipsis3 0.6s infinite;
         }
+
         @keyframes lds-ellipsis1 {
           0% {
             transform: scale(0);
