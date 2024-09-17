@@ -47,7 +47,7 @@ const Home: NextPage = ({ business, products }: { business: Business; products: 
 
   useEffect(() => {
     setLoading(true);
-    loadCollection('All', 12); 
+    loadCollection('All', 12);
     return () => setLoading(false);
   }, []);
 
@@ -74,8 +74,8 @@ const Home: NextPage = ({ business, products }: { business: Business; products: 
       if (data && data.data && Array.isArray(data.data.items)) {
         const products: Product[] = data.data.items;
         setAllProducts(products);
-        setVisibleProducts(products.slice(0, 12)); 
-        
+        setVisibleProducts(products.slice(0, 12));
+
         dispatch(
           setProductsData({
             data: products,
@@ -96,31 +96,29 @@ const Home: NextPage = ({ business, products }: { business: Business; products: 
   useEffect(() => {
     const onScroll = () => {
       if (loading || allProducts.length <= visibleProducts.length) return;
-  
+
       if (bottomBoundaryRef.current && isBottomVisible(bottomBoundaryRef.current)) {
         setLoading(true);
         setTimeout(() => {
           const remainingProducts = allProducts.length - visibleProducts.length;
-          const productsToLoad = remainingProducts > 12 ? 12 : remainingProducts; 
-  
-          // Load the next set of products, checking for duplicates
+          const productsToLoad = remainingProducts > 12 ? 12 : remainingProducts;
+
           const newProducts = allProducts
             .slice(visibleProducts.length, visibleProducts.length + productsToLoad)
-            .filter(product => !visibleProducts.some(visibleProduct => visibleProduct.uuid === product.uuid)); // Avoid duplication
-  
+            .filter(product => !visibleProducts.some(visibleProduct => visibleProduct.uuid === product.uuid));
+
           if (newProducts.length > 0) {
             setVisibleProducts(prevProducts => [...prevProducts, ...newProducts]);
           }
-  
+
           setLoading(false);
-        }, 1000); 
+        }, 1000);
       }
     };
-  
+
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, [loading, isBottomVisible, visibleProducts, allProducts]);
-  
 
   useEffect(() => {
     setIsClient(true);
@@ -160,6 +158,7 @@ const Home: NextPage = ({ business, products }: { business: Business; products: 
                 backgroundColor: selectedCollections === 'All' ? business.mainColor : '#dee2e6',
                 color: selectedCollections === 'All' ? business.textColor : '#495057',
               }}
+              key="all" // Ensure unique key
               className={`${
                 selectedCollections === 'All'
                   ? `bg-${business.mainColor} text-${business.textColor}`
@@ -168,10 +167,10 @@ const Home: NextPage = ({ business, products }: { business: Business; products: 
             >
               All
             </SwiperSlide>
-            {co.collections.map(coll => (
+            {co.collections.map((coll, index) => (
               <SwiperSlide
                 onClick={() => loadCollection(coll.collection, 12)}
-                key={coll.collection}
+                key={`${coll.collection}-${index}`} // Ensure unique key by combining collection and index
                 style={{
                   backgroundColor:
                     selectedCollections === coll.collection ? business.mainColor : '#dee2e6',

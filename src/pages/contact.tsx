@@ -1,58 +1,80 @@
-import { PhoneOutlined, MailOutlined, EnvironmentOutlined } from '@ant-design/icons';
-import { useState } from 'react';
-import DefaultLayout from '@/components/Layout/DefaultLayout';
+import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { Button, Form, Input, notification } from 'antd';
-import LoaderSpinner from '@/components/LoaderSpinner';
-import { BASE_URL } from '@/lib/Common';
-import { useTranslation } from '@/localization';
-import { selectBusiness } from '@/redux/reducers/businessSlice';
 import { useRouter } from 'next/router';
-import { useDispatch, useSelector } from 'react-redux';
-import TextArea from 'antd/es/input/TextArea';
+import { useTranslation } from '@/localization/index';
+import { useSelector, useDispatch } from 'react-redux';
+import { Button, Form, Input, notification } from 'antd';
+import { PhoneOutlined, MailOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import dynamic from 'next/dynamic';
 
-const ContactUs = () => {
+import DefaultLayout from '@/components/Layout/DefaultLayout';
+import { BASE_URL } from '@/lib/Common';
+import { selectBusiness, fetchBusiness } from '@/redux/reducers/businessSlice';
+import { clearCart, selectCartTotal } from '@/redux/reducers/cartSlice';
+import { AppState, wrapper } from '@/redux/store';
+
+const { TextArea } = Input;
+
+export const Contact = () => {
   const router = useRouter();
   const dispatch = useDispatch();
   const { t, currentLanguage } = useTranslation();
   const [form] = Form.useForm();
-  const businessState = useSelector(selectBusiness);
+
+  const bs = useSelector(selectBusiness);
+  const total = useSelector(selectCartTotal);
+
+  const [isClient, setIsClient] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isModalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const sendContactDataToApi = async () => {
+    setIsSending(true);
     try {
-      const values = await form.validateFields();
-
-      const endpoint = `${BASE_URL}/api/v1/public/contact`;
-
+      const values = form.getFieldsValue();
+      const endpoint = 'https://cuisinar.sharray.io/api/v1/public/contact';
+  
       const contactData = {
-        name: values.name,
-        phone: values.phone,
-        email: values.email,
-        message: values.message
+        name: values.name || '',
+        phone: values.phone || '',
+        email: values.email || '',
+        message: values.message || ''
       };
-
+  
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_TOKEN}`
+        },
         body: JSON.stringify(contactData),
       });
-
-      if (!response.ok) throw new Error('Network error');
-
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API Response Error:', errorData);
+        throw new Error(`Error ${response.status}: ${errorData.message || 'Network error'}`);
+      }
+  
       notification.success({
-        message: 'Message Sent',
-        description: 'Your message has been successfully sent.',
+        message: t('messageSent'),
+        description: t('messageSentDescription'),
         placement: 'topRight',
       });
-
+  
       form.resetFields();
     } catch (error) {
+      console.error('Send Contact Data Error:', error);
       notification.error({
-        message: 'Error sending message',
-        description: 'Please check your connection and try again.',
+        message: t('errorSendingMessage'),
+        description: error.message || t('networkErrorDescription'),
         placement: 'topRight',
       });
+    } finally {
       setIsSending(false);
     }
   };
@@ -60,76 +82,73 @@ const ContactUs = () => {
   return (
     <DefaultLayout>
       <Head>
-        <title>Contact Us</title>
-        <meta property="og:description" content="Contact us for support or inquiries." />
-        <meta name="keywords" content="contact, support, feedback" />
+        <title>{t('contactUs')}</title>
+        <meta property="og:description" content={t('contactDescription')} />
+        <meta name="keywords" content={t('contactKeywords')} />
       </Head>
 
       <div className="container mx-auto p-4 lg:p-8">
         <div className="flex flex-col lg:flex-row justify-between bg-white shadow-lg rounded-lg p-6 gap-6">
-          {/* Address Section */}
           <div className="flex flex-col items-start p-6 lg:w-1/3 border-r border-gray-300">
             <div className="flex items-center mb-4">
               <EnvironmentOutlined style={{ color: '#008181', fontSize: '28px' }} />
-              <h2 className="text-xl font-bold text-gray-700 ml-2">{currentLanguage === 'ar' ? 'العنوان' : 'Address'}</h2>
+              <h2 className="text-xl font-bold text-gray-700 ml-2">{t('address')}</h2>
             </div>
             <p className="text-gray-500 mb-4">Sunbelt, MT21, Bendemeer 06</p>
 
             <div className="flex items-center mb-4">
               <PhoneOutlined style={{ color: '#008181', fontSize: '28px' }} />
-              <h2 className="text-xl font-bold text-gray-700 ml-2">{currentLanguage === 'ar' ? 'الهاتف' : 'Phone'}</h2>
+              <h2 className="text-xl font-bold text-gray-700 ml-2">{t('phone')}</h2>
             </div>
             <p className="text-gray-500 mb-4">+0096 8893 5321 <br />+0096 8435 6353</p>
 
             <div className="flex items-center mb-4">
               <MailOutlined style={{ color: '#008181', fontSize: '28px' }} />
-              <h2 className="text-xl font-bold text-gray-700 ml-2">{currentLanguage === 'ar' ? 'البريد الإلكتروني' : 'Email'}</h2>
+              <h2 className="text-xl font-bold text-gray-700 ml-2">{t('email')}</h2>
             </div>
             <p className="text-gray-500">codinglab@gmail.com <br />info.codinglab@gmail.com</p>
           </div>
 
-          {/* Form Section */}
           <div className="flex flex-col lg:w-2/3 p-6">
-            <h1 className="text-2xl font-bold text-gray-700 mb-6">
-              {currentLanguage === 'ar' ? 'ارسل لنا رسالة' : 'Send us a message'}
-            </h1>
-            <p className="text-gray-600 mb-6">
-              {currentLanguage === 'ar'
-                ? 'إذا كان لديك أي عمل من أجلي أو أي استفسارات ...'
-                : 'If you have any work or queries, feel free to send a message. It’s my pleasure to help you.'}
-            </p>
-
+            <h1 className="text-2xl font-bold text-gray-700 mb-6">{t('Send Message')}</h1>
             <Form layout="vertical" form={form} className="w-full" onFinish={sendContactDataToApi}>
               <div className="grid grid-cols-1 gap-6">
                 <Form.Item
                   name="name"
-                  label={t('name')}
-                  rules={[{ required: true, message: 'Please input your full name!' }]}
+                  label={t('Name')}
                 >
                   <Input placeholder={t('name')} size="large" />
                 </Form.Item>
                 <Form.Item
                   name="phone"
-                  label={t('phone')}
-                  rules={[{ required: true, pattern: /^(\+?\d{1,3})?\d{10}$/, message: 'Please enter a valid phone number!' }]}
+                  label={t('Phone')}
                 >
                   <Input placeholder={t('phone')} size="large" />
                 </Form.Item>
                 <Form.Item
                   name="email"
-                  label={t('email')}
-                  rules={[{ required: true, type: 'email', message: 'Please enter a valid email address!' }]}
+                  label={t('Email')}
                 >
                   <Input placeholder={t('email')} size="large" />
                 </Form.Item>
-                <Form.Item name="message" label={t('message')}>
-                  <TextArea rows={5} placeholder={t('message')} size="large" />
+                <Form.Item
+                  name="message"
+                  label={t('Message')}
+                >
+                  <TextArea rows={4} placeholder={t('message')} size="large" />
                 </Form.Item>
-                <Form.Item>
-                  <Button style={{backgroundColor:'#008181',padding:'20px',borderRadius:'20px'}} type="primary" htmlType="submit" loading={isSending}>
-                    {t('send')}
-                  </Button>
-                </Form.Item>
+              </div>
+
+              <div className="flex items-center gap-4 mt-8">
+                <Button
+                    style={{backgroundColor:"#008181",borderRadius:'20px',padding:'20px'}}
+                  type="primary"
+                  htmlType="submit"
+                  size="large"
+                  loading={isSending}
+                >
+                  {t('send')}
+                </Button>
               </div>
             </Form>
           </div>
@@ -139,4 +158,25 @@ const ContactUs = () => {
   );
 };
 
-export default ContactUs;
+// Server-side rendering
+export const getServerSideProps = wrapper.getServerSideProps(store => async ({ req }) => {
+  const isMobile = req.headers['user-agent'].includes('Mobile');
+  if (isMobile) {
+    return {
+      redirect: {
+        destination: '/mobile',
+        permanent: false,
+      },
+    };
+  }
+
+  try {
+    await store.dispatch(fetchBusiness());
+  } catch (error) {
+    console.error('Error fetching business data:', error);
+  }
+
+  return { props: {} };
+});
+
+export default Contact;

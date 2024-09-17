@@ -1,27 +1,33 @@
-import ButtonWithValidation from '@/components/ButtonWithValidation';
-import DefaultLayout from '@/components/Layout/DefaultLayout';
-import MapModal from '@/components/MapModal';
-import { useTranslation } from '@/localization/index';
-import { Button, Form, Input, notification } from 'antd';
+import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
-import { connect, useDispatch, useSelector } from 'react-redux';
-import { BASE_URL, ENV } from '@/lib/Common';
-import { validateDirection, validateLang } from '@/lib/Fuctions';
-import { fetchBusiness, selectBusiness } from '@/redux/reducers/businessSlice';
+import { useTranslation } from '@/localization/index';
+import { useSelector, useDispatch, connect } from 'react-redux';
+import { Button, Form, Input, notification, Spin } from 'antd';
+import { PushpinFilled } from '@ant-design/icons';
+
+import ButtonWithValidation from '@/components/ButtonWithValidation';
+import dynamic from 'next/dynamic'; // Dynamic import for the MapModal to ensure no SSR
+import DefaultLayout from '@/components/Layout/DefaultLayout';
+
 import { clearCart, selectCartTotal } from '@/redux/reducers/cartSlice';
+import { fetchBusiness, selectBusiness } from '@/redux/reducers/businessSlice';
+import { BASE_URL, ENV } from '@/lib/Common';
 import { AppState, wrapper } from '@/redux/store';
+import { validateDirection, validateLang } from '@/lib/Fuctions';
 
 const { TextArea } = Input;
+
+// Dynamically import the MapModal to avoid server-side rendering issues
+const MapModal = dynamic(() => import('@/components/MapModal'), { ssr: false });
 
 export const CheckOut = () => {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { t, currentLanguage } = useTranslation();
+  const { t, currentLanguage } = useTranslation(); // Get current language and translation function
   const [form] = Form.useForm();
 
-  const businessState = useSelector(selectBusiness);
+  const bs = useSelector(selectBusiness);
   const total = useSelector(selectCartTotal);
 
   const [isClient, setIsClient] = useState(false);
@@ -32,10 +38,11 @@ export const CheckOut = () => {
   const [isCheckingGeolocation, setIsCheckingGeolocation] = useState(true);
   const [isFormValid, setIsFormValid] = useState(false);
 
+  // Run only on the client-side
   useEffect(() => {
     setIsClient(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      position => {
         setGeolocationEnabled(true);
         const { latitude, longitude } = position.coords;
         setLocation({ lat: latitude, lng: longitude });
@@ -44,20 +51,13 @@ export const CheckOut = () => {
       () => {
         setGeolocationEnabled(false);
         notification.error({
-          message: validateLang(currentLanguage) ? 'تفعيل سماحية الوصول للموقع' : 'Activate Location',
-          description: validateLang(currentLanguage)
-            ? 'يرجى تفعيل سماحية الوصول للموقع'
-            : 'To use maps functionality, enable location in your browser',
+          message: t('activateLocation'), // Changed for dynamic translation
+          description: t('enableLocationInBrowser'), // Changed for dynamic translation
           placement: validateDirection(currentLanguage),
         });
       }
     );
-  }, [currentLanguage]);
-
-  const handleClearCart = () => {
-    dispatch(clearCart());
-    localStorage.removeItem('cart');
-  };
+  }, [currentLanguage]); // Ensure it reacts to language changes
 
   const fetchAddressFromLocation = async (latitude, longitude) => {
     try {
@@ -74,23 +74,27 @@ export const CheckOut = () => {
     }
   };
 
+  const handleClearCart = () => {
+    dispatch(clearCart());
+    localStorage.removeItem('cart');
+  };
+
   const sendValidation = async (msg, encryptByAES, key) => {
     setIsSending(true);
+
     try {
       const values = await form.validateFields();
       setIsFormValid(true);
 
-      const timestamp = Math.floor(Date.now() / 1000);
+      const timestamp = Math.floor(new Date().getTime() / 1000);
       const updatedMsg = { ...msg, timeStamp: timestamp };
-      const encryptedCheck = encryptByAES(JSON.stringify(updatedMsg), key);
       const url = `${BASE_URL}/api/v1/public/validate`;
-
+      const encryptedCheck = encryptByAES(JSON.stringify(updatedMsg), key);
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ check: encryptedCheck }),
       });
-
       const responseData = await response.json();
 
       if (responseData.status === 'success') {
@@ -98,27 +102,44 @@ export const CheckOut = () => {
         await sendCartDataToApi(tokenEncrypt);
       } else {
         notification.error({
-          message: validateLang(currentLanguage) ? 'يوجد خطأ ما' : 'There is an error',
-          description: ENV === 'DEV' ? responseData.message : 'Network error. Please try again.',
+          message: t('errorOccurred'), // Use dynamic translation for error messages
+          description:
+            ENV === 'DEV'
+              ? responseData.message
+              : t('networkError'), // Translation for dynamic network error messages
           placement: validateDirection(currentLanguage),
         });
+        console.error('Validation failed!', responseData);
         setIsSending(false);
       }
     } catch (error) {
-      notification.error({
-        message: validateLang(currentLanguage) ? 'يوجد خطأ ما' : 'There is an error',
-        description: 'Please fill in the required fields.',
-        placement: validateDirection(currentLanguage),
-      });
+      if (error instanceof Error && form.isFieldTouched()) {
+        setIsFormValid(false);
+        console.log(error);
+      } else {
+        console.error(error);
+        notification.error({
+          message: t('errorOccurred'), // Translation for error occurred
+          description: t('fillRequiredFields'), // Translation for required fields
+          placement: validateDirection(currentLanguage),
+        });
+      }
       setIsSending(false);
     }
   };
 
-  const sendCartDataToApi = async (finalToken) => {
+  const sendCartDataToApi = async finalToken => {
     try {
       const endpoint = `${BASE_URL}/api/v1/public/checkout`;
+
       const itemsString = localStorage.getItem('cart');
       const storedItems = itemsString ? JSON.parse(itemsString) : [];
+
+      const items = storedItems.map(item => ({
+        item_uuid: item.item_uuid,
+        quan: item.quan,
+        notes: item.item_notes || '',
+      }));
 
       const cartData = {
         token: finalToken,
@@ -129,32 +150,52 @@ export const CheckOut = () => {
           address: form.getFieldValue('addressInfo'),
           longitude: location?.lng || 0,
           latitude: location?.lat || 0,
+          sm_link: 'facebook.com',
           notes: form.getFieldValue('deliveryNotes') || 'none',
-          items: storedItems.map((item) => ({
-            item_uuid: item.item_uuid,
-            quan: item.quan,
-            notes: item.item_notes || '',
-          })),
+          order_date: '',
+          delivery_cost: 1.22,
+          discount: 1000,
+          items: items,
         },
       };
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(cartData),
       });
 
-      if (!response.ok) throw new Error('Network error');
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
 
       const data = await response.json();
+
+      console.log('Successfully sent cart data:', data);
+
+      localStorage.setItem('latestOrder', data.orderNumber);
+      localStorage.setItem('cameFromCheckout', 'true');
+      const ordersString = localStorage.getItem('orders');
+      let orders = ordersString ? JSON.parse(ordersString) : [];
+
+      const newOrder = {
+        orderNumber: data.orderNumber,
+        timestamp: new Date().getTime(),
+      };
+      orders.push(newOrder);
+
+      localStorage.setItem('orders', JSON.stringify(orders));
       handleClearCart();
       setIsSending(false);
       router.push('/success');
     } catch (error) {
+      console.error('Error sending cart data!', error);
       notification.error({
-        message: 'Error sending cart data',
-        description: 'Please check your connection and try again.',
-        placement: 'topRight',
+        message: t('errorOccurred'),
+        description: t('networkError'),
+        placement: validateDirection(currentLanguage),
       });
       setIsSending(false);
     }
@@ -162,8 +203,7 @@ export const CheckOut = () => {
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
-
-  const handleConfirmLocation = (selectedLocation) => {
+  const handleConfirmLocation = selectedLocation => {
     setLocation(selectedLocation);
     fetchAddressFromLocation(selectedLocation.lat, selectedLocation.lng);
     handleCloseModal();
@@ -172,32 +212,75 @@ export const CheckOut = () => {
   return (
     <DefaultLayout>
       <Head>
-        <title>{`${businessState.title_en || 'Checkout'} - Checkout`}</title>
-        <meta property="og:description" content={businessState.descr_en} key="description" />
+        <title>
+          {currentLanguage === 'ar' ? `${bs.title_ar} - ${t('checkout')}` : `${bs.title_en} - ${t('checkout')}`}
+        </title>
+        <meta
+          property="og:description"
+          content={currentLanguage === 'ar' ? bs.descr_ar : bs.descr_en}
+          key="title"
+        />
       </Head>
-      <div className="flex flex-col lg:flex-row gap-7 w-full relative">
-        <Form layout="vertical" form={form} className="lg:w-[50%] w-full relative">
+      <div className="flex lg:flex-row flex-col gap-7 w-full relative">
+        <Form
+          layout="vertical"
+          form={form}
+          className="flex lg:flex-row flex-col gap-7 lg:w-[50%] w-full relative"
+        >
           <div className="flex flex-col gap-4 w-full">
             <Form.Item
+              key={currentLanguage}
               name="fullName"
               label={t('fullName')}
-              rules={[{ required: true, message: 'Please input your full name!' }]}
+              rules={[
+                {
+                  required: true,
+                  message: t('pleaseEnterFullName'),
+                },
+              ]}
             >
               <Input placeholder={t('fullName')} size="large" />
             </Form.Item>
             <Form.Item
+              key={currentLanguage}
               name="phoneInfo"
               label={t('phoneInfo')}
-              rules={[{ required: true, pattern: /^((\+964)|0)(\d{10})$/, message: 'Please enter a valid phone number!' }]}
+              rules={[
+                {
+                  required: true,
+                  pattern: /^((\+964)|0)(\d{10})$/,
+                  message: t('pleaseEnterValidPhoneNumber'),
+                },
+              ]}
             >
               <Input placeholder={t('phoneInfo')} size="large" />
             </Form.Item>
-            <Form.Item name="addressInfo" label={t('Address 1')}>
+            <Form.Item
+              key={currentLanguage}
+              name="phoneInfo2"
+              label={t('phoneInfo2')}
+              rules={[
+                {
+                  required: false,
+                  pattern: /^((\+964)|0)(\d{10})$/,
+                  message: t('pleaseEnterValidPhoneNumber'),
+                },
+              ]}
+            >
+              <Input placeholder={t('phoneInfo2')} size="large" />
+            </Form.Item>
+            <Form.Item name="addressInfo2" label={t('Address 1')}>
+              <Input placeholder={t('Address 1')} />
+            </Form.Item>
+            <Form.Item name="addressInfo" label={t('Address 2')}>
               <Input
-                placeholder={t('addressInfo')}
+                placeholder={t('Address 2')}
                 suffix={
-                  <Button onClick={handleOpenModal} style={{ backgroundColor: '#028181', color: 'white' }}>
-                    {t('Pin On Map')}
+                  <Button
+                    onClick={handleOpenModal}
+                    style={{ backgroundColor: '#028181', color: 'white' }}
+                  >
+                    {t('pinOnMap')}
                   </Button>
                 }
               />
@@ -208,12 +291,13 @@ export const CheckOut = () => {
             <Form.Item>
               <ButtonWithValidation
                 htmlType="submit"
-                mainColor={businessState.mainColor}
-                textColor={businessState.textColor}
+                mainColor={bs.mainColor}
+                textColor={bs.textColor}
                 onValidation={sendValidation}
                 isSending={isSending}
+                disabled={!isFormValid}
               >
-                {t('checkOut')}
+                {t('checkout')}
               </ButtonWithValidation>
             </Form.Item>
           </div>
@@ -221,21 +305,22 @@ export const CheckOut = () => {
         <div className="lg:w-[50%] w-full h-full lg:h-screen">
           <div className="border-y-2 border-black py-4 flex flex-col gap-2">
             <span className="text-xl font-bold">{t('summary')}</span>
-            <div className="flex justify-between text-lg font-bold">
+            <div className="flex w-full justify-between text-lg font-bold">
               <span>{t('itemTotal')}</span>
-              <span>{total.toLocaleString('en-US')} {t('currency')}</span>
+              {isClient && <span>{total.toLocaleString('en-US')} {t('currency')}</span>}
             </div>
-            <div className="flex justify-between text-lg font-bold">
+            <div className="flex w-full justify-between text-lg font-bold">
               <span>{t('deliveryPrice')}</span>
               <span>{(5000).toLocaleString('en-US')} {t('currency')}</span>
             </div>
           </div>
-          <div className="flex justify-between py-4 text-lg font-bold">
+          <div className="flex w-full py-4 justify-between text-lg font-bold">
             <span>{t('grandTotalAll')}</span>
-            <span>{(total + 5000).toLocaleString('en-US')} {t('currency')}</span>
+            {isClient && <span>{(total + 5000).toLocaleString('en-US')} {t('currency')}</span>}
           </div>
         </div>
       </div>
+
       {location && (
         <MapModal
           isOpen={isModalOpen}
@@ -248,9 +333,19 @@ export const CheckOut = () => {
   );
 };
 
-export const getServerSideProps = wrapper.getServerSideProps((store) => async () => {
+/* --------------------------------- Server --------------------------------- */
+export const getServerSideProps = wrapper.getServerSideProps(store => async () => {
   await store.dispatch(fetchBusiness());
-  return { props: { business: store.getState().business } };
+
+  return {
+    props: {
+      business: store.getState().business,
+    },
+  };
 });
 
-export default connect((state: AppState) => ({ business: state.business }))(CheckOut);
+const mapStateToProps = (state: AppState) => ({
+  business: state.business,
+});
+
+export default connect(mapStateToProps)(CheckOut);

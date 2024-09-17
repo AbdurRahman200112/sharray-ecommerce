@@ -66,11 +66,10 @@ const Success = () => {
             <p className="text-lg mt-2">
               {t('your_order_number')}: {orderNo}
             </p>
-            <Link href="/">
-              <a className="mt-4 text-blue-500 hover:underline">
-                {t('back_to_home')}
-              </a>
+            <Link href="/" className="mt-4 text-blue-500 hover:underline">
+              {t('back_to_home')}
             </Link>
+
           </div>
         </DefaultLayout>
       )}
